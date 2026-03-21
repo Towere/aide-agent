@@ -6,10 +6,23 @@
 
 ### 后端启动
 
+1. 启动 FastAPI 服务器:
+
 ```bash
 cd backend
 pip install -r requirements.txt
 python -m backend.main
+```
+
+2. 启动 Celery Worker (处理异步任务):
+
+```bash
+cd backend
+# 方式1: 使用 Python 脚本
+python start_worker.py
+
+# 方式2: 使用 Celery 命令
+celery -A backend.core.celery.app worker --loglevel=info -Q tasks,default
 ```
 
 ### 前端启动
@@ -29,8 +42,8 @@ npm run dev
 
 ## 技术栈
 
-- 后端: Python + FastAPI
+- 后端: Python + FastAPI + Celery
 - 前端: Vue3 + Element Plus
 - 数据库: MySQL
-- 缓存/队列: Redis
+- 缓存/队列: Redis (作为 Celery 的消息代理)
 - AI: 豆包大模型API

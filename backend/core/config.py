@@ -32,7 +32,7 @@ class Settings:
     db_type: str = os.getenv("DB_TYPE", "sqlite")  # "mysql" or "sqlite"
 
     # Redis
-    redis_host: str = os.getenv("REDIS_HOST", "localhost")
+    redis_host: str = os.getenv("REDIS_HOST", "127.0.0.1")
     redis_port: int = int(os.getenv("REDIS_PORT", "6379"))
     redis_password: str = os.getenv("REDIS_PASSWORD", "")
     redis_db: int = int(os.getenv("REDIS_DB", "0"))
