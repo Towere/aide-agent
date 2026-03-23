@@ -13,6 +13,7 @@ import logging
 
 from core.config import settings
 from core.database import engine, Base
+from core.db_migration import init_database
 from api.routes import router
 
 logging.basicConfig(
@@ -21,7 +22,8 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-Base.metadata.create_all(bind=engine)
+# 初始化数据库（自动迁移）
+init_database()
 
 app = FastAPI(
     title="Code to Paper API",

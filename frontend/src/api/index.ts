@@ -16,20 +16,28 @@ export interface Task {
 }
 
 export const taskApi = {
-  async createByGit(url: string): Promise<Task> {
+  async createByGit(url: string, templateFile?: File, language: string = 'en'): Promise<Task> {
     const formData = new FormData()
     formData.append('input_type', 'git_url')
     formData.append('input_source', url)
+    formData.append('language', language)
+    if (templateFile) {
+      formData.append('template_file', templateFile)
+    }
     const { data } = await api.post('/tasks', formData, {
       headers: { 'Content-Type': 'multipart/form-data' }
     })
     return data
   },
 
-  async createByZip(file: File): Promise<Task> {
+  async createByZip(file: File, templateFile?: File, language: string = 'en'): Promise<Task> {
     const formData = new FormData()
     formData.append('input_type', 'zip_upload')
     formData.append('file', file)
+    formData.append('language', language)
+    if (templateFile) {
+      formData.append('template_file', templateFile)
+    }
     const { data } = await api.post('/tasks', formData, {
       headers: { 'Content-Type': 'multipart/form-data' }
     })
@@ -41,7 +49,7 @@ export const taskApi = {
     return data
   },
 
-  download(taskId: string) {
-    window.open(`/api/tasks/${taskId}/download`, '_blank')
+  download(taskId: string, format: 'md' | 'docx' = 'md') {
+    window.open(`/api/tasks/${taskId}/download?format=${format}`, '_blank')
   }
 }

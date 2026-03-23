@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
 from typing import Optional, Dict, Any
-from models.task import Task, TaskStatus, InputType
+from models.task import Task, TaskStatus, InputType, PaperLanguage
 from datetime import datetime
 import logging
 
@@ -12,12 +12,16 @@ class TaskService:
         db: Session,
         input_type: InputType,
         input_source: str,
-        repo_path: Optional[str] = None
+        repo_path: Optional[str] = None,
+        template_config: Optional[Dict] = None,
+        language: PaperLanguage = PaperLanguage.ENGLISH
     ) -> Task:
         task = Task(
             input_type=input_type,
             input_source=input_source,
             repo_path=repo_path,
+            template_config=template_config,
+            language=language,
             status=TaskStatus.PENDING,
             progress=0
         )
@@ -55,7 +59,8 @@ class TaskService:
         task_id: str,
         code_analysis: Optional[Dict] = None,
         experiment_analysis: Optional[Dict] = None,
-        paper_content: Optional[str] = None
+        paper_content: Optional[str] = None,
+        template_config: Optional[Dict] = None
     ) -> bool:
         task = TaskService.get_task(db, task_id)
         if not task:
@@ -66,6 +71,8 @@ class TaskService:
             task.experiment_analysis = experiment_analysis
         if paper_content is not None:
             task.paper_content = paper_content
+        if template_config is not None:
+            task.template_config = template_config
         task.updated_at = datetime.utcnow()
         db.commit()
         return True

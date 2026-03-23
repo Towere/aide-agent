@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from typing import Optional
 import uuid
 import io
+import json
 
 from core.database import get_db
 from core.config import settings
@@ -14,15 +15,14 @@ from api.schemas import (
     InputType,
     TaskStatus
 )
+from models.task import PaperLanguage
 from services.task_service import TaskService
 from services.code_fetcher import CodeFetcher
-# 🔴 关键修复1：导入 celery.py 中配置好的 Celery 实例，确保 API 复用同一配置
 from core.celery import app as celery_app
 from tasks import process_task as process_task_celery
 from utils import file_utils
 import logging
 
-# 🔴 关键修复2：API 启动时验证 Redis 连接，提前暴露问题
 import redis
 logger = logging.getLogger(__name__)
 try:
@@ -45,13 +45,47 @@ async def create_task(
     input_type: str = Form(...),
     input_source: Optional[str] = Form(None),
     file: Optional[UploadFile] = File(None),
+    template_file: Optional[UploadFile] = File(None),
+    language: str = Form("en"),
     db: Session = Depends(get_db)
 ):
+    """
+    创建论文生成任务
+
+    Args:
+        input_type: 输入类型 - git_url 或 zip_upload
+        input_source: Git URL（当input_type为git_url时必填）
+        file: ZIP文件（当input_type为zip_upload时必填）
+        template_file: 自定义paper_template.json模板文件（可选）
+        language: 论文语言 - en (英文), zh (中文), bilingual (双语)
+        db: 数据库会话
+
+    Returns:
+        任务信息
+    """
     try:
         input_type_enum = InputType(input_type)
 
+        # 解析语言参数
+        try:
+            language_enum = PaperLanguage(language)
+        except ValueError:
+            raise HTTPException(status_code=400, detail=f"无效的语言选项: {language}，可选值: en, zh, bilingual")
+
         work_dir, dir_id = file_utils.get_unique_upload_dir()
         repo_dir = None
+        template_config = None
+
+        # 解析模板文件
+        if template_file:
+            try:
+                template_content = await template_file.read()
+                template_config = json.loads(template_content.decode('utf-8'))
+                logger.info(f"加载自定义模板: {template_file.filename}")
+            except json.JSONDecodeError as e:
+                raise HTTPException(status_code=400, detail=f"模板JSON格式错误: {str(e)}")
+            except Exception as e:
+                raise HTTPException(status_code=400, detail=f"模板文件读取失败: {str(e)}")
 
         if input_type_enum == InputType.GIT_URL:
             if not input_source:
@@ -71,13 +105,14 @@ async def create_task(
             db,
             input_type_enum,
             input_source or (file.filename if file else "upload.zip"),
-            repo_path=repo_dir
+            repo_path=repo_dir,
+            template_config=template_config,
+            language=language_enum
         )
 
-        # 🔴 关键修复3：使用 apply_async 显式指定队列，匹配 celery.py 路由，添加重试
         process_task_celery.apply_async(
             args=[task.id, repo_dir],
-            queue='tasks',  # 强制发送到 tasks 队列，确保 Worker 能消费
+            queue='tasks',
             retry=True,
             retry_policy={
                 'max_retries': 3,
@@ -104,8 +139,19 @@ async def create_task(
         logger.exception("创建任务失败")
         raise HTTPException(status_code=500, detail=str(e))
 
+
 @router.get("/tasks/{task_id}", response_model=TaskResponse)
 async def get_task(task_id: str, db: Session = Depends(get_db)):
+    """
+    获取任务详情
+
+    Args:
+        task_id: 任务ID
+        db: 数据库会话
+
+    Returns:
+        任务信息
+    """
     task = TaskService.get_task(db, task_id)
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
@@ -120,17 +166,56 @@ async def get_task(task_id: str, db: Session = Depends(get_db)):
         error_message=task.error_message
     )
 
+
 @router.get("/tasks/{task_id}/download")
-async def download_paper(task_id: str, db: Session = Depends(get_db)):
+async def download_paper(
+    task_id: str,
+    format: str = "md",
+    db: Session = Depends(get_db)
+):
+    """
+    下载生成的论文
+
+    Args:
+        task_id: 任务ID
+        format: 下载格式 - "md" (Markdown) 或 "docx" (Word)
+        db: 数据库会话
+
+    Returns:
+        文件流
+    """
     task = TaskService.get_task(db, task_id)
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
     if not task.paper_content:
         raise HTTPException(status_code=400, detail="Paper not available")
 
-    filename = f"paper_{task.id}.md"
-    return StreamingResponse(
-        io.StringIO(task.paper_content),
-        media_type="text/markdown",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'}
-    )
+    if format == "docx":
+        # 生成DOCX格式
+        from formatters.template_manager import get_template_manager
+        from formatters.docx_formatter import generate_docx
+
+        template = get_template_manager().merge_with_default(task.template_config)
+        language = task.language.value if hasattr(task.language, 'value') else str(task.language) if task.language else 'en'
+        logger.info(f"生成DOCX，任务语言: {language}")
+        docx_bytes = generate_docx(
+            paper_content=task.paper_content,
+            template=template,
+            code_analysis=task.code_analysis,
+            language=language
+        )
+
+        filename = f"paper_{task.id}.docx"
+        return StreamingResponse(
+            io.BytesIO(docx_bytes),
+            media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+        )
+    else:
+        # 默认返回Markdown格式
+        filename = f"paper_{task.id}.md"
+        return StreamingResponse(
+            io.StringIO(task.paper_content),
+            media_type="text/markdown",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+        )

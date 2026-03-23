@@ -19,6 +19,7 @@ class TaskWorker:
         self.code_analysis: Optional[Dict[str, Any]] = None
         self.experiment_analysis: Optional[Dict[str, Any]] = None
         self.paper_content: Optional[str] = None
+        self.template_config: Optional[Dict[str, Any]] = None
         logger.info(f"TaskWorker initialized for task {task_id}, repo_dir: {repo_dir}")
 
     def _update_status(self, status: TaskStatus, progress: int, message: str = ""):
@@ -89,14 +90,24 @@ class TaskWorker:
         return result
 
     def _step_generate_paper(self) -> Dict[str, Any]:
-        """步骤3: 生成论文"""
+        """步骤3: 生成论文（使用新的模块化架构）"""
         if self.code_analysis is None or self.experiment_analysis is None:
             raise ValueError("代码分析或实验分析结果为空，无法生成论文")
+
+        # 获取任务中的模板配置和语言设置
+        task = TaskService.get_task(self.db, self.task_id)
+        language = "en"
+        if task:
+            self.template_config = task.template_config
+            if task.language:
+                language = task.language.value if hasattr(task.language, 'value') else str(task.language)
 
         paper_gen = PaperGeneratorAgent()
         result = paper_gen.run({
             "code_analysis": self.code_analysis,
-            "experiment_analysis": self.experiment_analysis
+            "experiment_analysis": self.experiment_analysis,
+            "template": self.template_config,
+            "language": language
         })
         if result.get("success"):
             self.paper_content = result["paper_content"]

@@ -1,0 +1,102 @@
+{
+  "language": "en",
+  "paper_structure": {
+    "en": [
+      "title_page",
+      "abstract_en",
+      "table_of_contents",
+      "main_body",
+      "references",
+      "appendices"
+    ],
+    "zh": [
+      "title_page",
+      "abstract_cn",
+      "table_of_contents",
+      "main_body",
+      "references",
+      "appendices"
+    ],
+    "bilingual": [
+      "title_page",
+      "abstract_cn",
+      "abstract_en",
+      "table_of_contents",
+      "main_body",
+      "references",
+      "appendices"
+    ]
+  },
+  "styles": {
+    "font": "Times New Roman",
+    "font_cjk": "宋体",
+    "title_size": 18,
+    "heading1_size": 16,
+    "heading2_size": 14,
+    "heading3_size": 13,
+    "body_size": 12,
+    "line_spacing": 1.5,
+    "margin_top": 2.54,
+    "margin_bottom": 2.54,
+    "margin_left": 3.17,
+    "margin_right": 3.17
+  },
+  "sections": {
+    "title_page": {
+      "title": "{{project_name}}",
+      "subtitle": "基于代码自动生成的科研论文",
+      "author": "作者",
+      "institution": "机构",
+      "date": "{{submit_date}}"
+    },
+    "abstract_cn": {
+      "heading": "摘要",
+      "keywords_heading": "关键词",
+      "keyword_count": 3
+    },
+    "abstract_en": {
+      "heading": "Abstract",
+      "keywords_heading": "Keywords",
+      "keyword_count": 3
+    },
+    "table_of_contents": {
+      "heading": "目录"
+    },
+    "main_body": [
+      {
+        "number": 1,
+        "title": "Introduction",
+        "title_cn": "引言"
+      },
+      {
+        "number": 2,
+        "title": "Related Work",
+        "title_cn": "相关工作"
+      },
+      {
+        "number": 3,
+        "title": "Methodology",
+        "title_cn": "研究方法"
+      },
+      {
+        "number": 4,
+        "title": "Experiments",
+        "title_cn": "实验"
+      },
+      {
+        "number": 5,
+        "title": "Conclusion",
+        "title_cn": "结论"
+      }
+    ],
+    "references": {
+      "heading": "References",
+      "heading_cn": "参考文献"
+    },
+    "appendices": {
+      "heading": "Appendices",
+      "heading_cn": "附录",
+      "enabled": false
+    }
+  }
+}
