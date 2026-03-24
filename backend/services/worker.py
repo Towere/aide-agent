@@ -18,6 +18,7 @@ class TaskWorker:
         self.db = SessionLocal()
         self.code_analysis: Optional[Dict[str, Any]] = None
         self.experiment_analysis: Optional[Dict[str, Any]] = None
+        self.repo_structure: Optional[Dict[str, Any]] = None
         self.paper_content: Optional[str] = None
         self.template_config: Optional[Dict[str, Any]] = None
         logger.info(f"TaskWorker initialized for task {task_id}, repo_dir: {repo_dir}")
@@ -71,6 +72,7 @@ class TaskWorker:
         })
         if result.get("success"):
             self.code_analysis = result["code_analysis"]
+            self.repo_structure = result.get("repo_structure", {})
             self._update_result(code_analysis=self.code_analysis)
         return result
 
@@ -106,6 +108,8 @@ class TaskWorker:
         result = paper_gen.run({
             "code_analysis": self.code_analysis,
             "experiment_analysis": self.experiment_analysis,
+            "repo_structure": self.repo_structure,
+            "task_id": self.task_id,
             "template": self.template_config,
             "language": language
         })

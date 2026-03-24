@@ -5,6 +5,8 @@ from typing import Dict, Any
 from agents.base import BaseAgent
 from agents.structure_generator import StructureGeneratorAgent
 from agents.content_optimizer import ContentOptimizerAgent
+from agents.diagram_generator import DiagramGenerator
+from agents.diagram_integrator import DiagramIntegrator
 from formatters.template_manager import get_template_manager
 from formatters.docx_formatter import generate_docx
 import json
@@ -21,6 +23,8 @@ class PaperGeneratorAgent(BaseAgent):
         self.structure_agent = StructureGeneratorAgent()
         self.content_optimizer = ContentOptimizerAgent()
         self.template_manager = get_template_manager()
+        self.diagram_generator = DiagramGenerator()
+        self.diagram_integrator = DiagramIntegrator()
 
     def run(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -67,7 +71,32 @@ class PaperGeneratorAgent(BaseAgent):
             # 3. 生成论文内容（根据语言选择）
             paper_content = self._generate_full_paper(code_analysis, experiment_analysis, language)
 
-            # 4. 优化内容
+            # 4. 生成图表
+            repo_structure = input_data.get("repo_structure", {})
+            task_id = input_data.get("task_id", "unknown")
+            diagrams = {}
+            try:
+                diag_result = self.diagram_generator.run({
+                    "code_analysis": code_analysis,
+                    "repo_structure": repo_structure,
+                    "task_id": task_id,
+                    "language": language
+                })
+                if diag_result.get("success"):
+                    diagrams = diag_result.get("diagrams", {})
+                    logger.info(f"成功生成 {len(diagrams)} 个图表")
+            except Exception as e:
+                logger.warning(f"图表生成失败: {e}")
+
+            # 5. 集成图表到论文
+            if diagrams:
+                paper_content = self.diagram_integrator.integrate(
+                    paper_content,
+                    diagrams,
+                    language
+                )
+
+            # 6. 优化内容
             opt_result = self.content_optimizer.run({
                 "paper_content": paper_content,
                 "code_analysis": code_analysis
@@ -75,11 +104,12 @@ class PaperGeneratorAgent(BaseAgent):
             if opt_result.get("success"):
                 paper_content = opt_result["optimized_content"]
 
-            # 5. 生成DOCX
+            # 7. 生成DOCX
             paper_docx = generate_docx(
                 paper_content=paper_content,
                 template=template,
-                code_analysis=code_analysis
+                code_analysis=code_analysis,
+                language=language
             )
 
             result = {

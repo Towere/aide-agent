@@ -294,6 +294,42 @@ class DocxFormatter:
             space_after=6
         )
 
+    def add_image(self, image_path: str, caption: str = ""):
+        """
+        添加图片到文档
+
+        Args:
+            image_path: 图片文件路径
+            caption: 图片标题
+        """
+        import os
+        if not os.path.exists(image_path):
+            logger.warning(f"图片文件不存在: {image_path}")
+            return
+
+        try:
+            # 添加图片
+            p = self.doc.add_paragraph()
+            p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+
+            run = p.add_run()
+            from docx.shared import Inches
+            # 添加图片，最大宽度6英寸
+            run.add_picture(image_path, width=Inches(6))
+
+            # 添加图片标题
+            if caption:
+                caption_p = self.doc.add_paragraph()
+                caption_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                caption_run = caption_p.add_run(f"图：{caption}")
+                caption_run.font.size = Pt(10)
+                caption_run.font.italic = True
+
+            logger.info(f"已插入图片: {image_path}")
+
+        except Exception as e:
+            logger.warning(f"插入图片失败: {image_path}, error: {e}")
+
     def add_section_content(self, content: str, is_cjk: bool = True):
         """
         添加章节内容
@@ -302,12 +338,26 @@ class DocxFormatter:
             content: 章节内容（Markdown格式）
             is_cjk: 是否为中文
         """
+        import re
         # 简单的Markdown解析
         lines = content.split('\n')
         for line in lines:
             line = line.rstrip()
             if not line:
                 self._add_paragraph('')
+                continue
+
+            # 检测图片语法: ![caption](path)
+            img_match = re.match(r'!\[([^\]]*)\]\(([^)]+)\)', line)
+            if img_match:
+                caption = img_match.group(1)
+                img_path = img_match.group(2)
+                self.add_image(img_path, caption)
+                continue
+
+            # 检测斜体图片标题: *caption*
+            if line.startswith('*') and line.endswith('*'):
+                # 这是图片标题，已在add_image中处理，跳过
                 continue
 
             # 标题处理
